@@ -1,0 +1,56 @@
+seed: 42
+
+data:
+  raw_train_csv: data/raw/fraudTrain.csv
+  raw_test_csv: data/raw/fraudTest.csv
+  ingested_table: data/ingested/transactions.parquet
+  features_table: data/features/features.parquet
+
+split:
+  # strictly temporal, no shuffling across the boundaries.
+  # fraudTrain.csv spans 2019-01-01 to 2020-06-21; fraudTest.csv spans
+  # 2020-06-21 to 2020-12-31. We use Kaggle's own file split as the
+  # train/test boundary (it's already temporal) and carve a validation
+  # slice out of the tail of fraudTrain.
+  train_end_date: "2019-12-31"
+  val_end_date: "2020-06-21"
+  # everything in fraudTest.csv (after val_end_date) is the held-out test set
+
+baseline:
+  type: logistic_regression
+  class_weight: balanced
+  max_iter: 1000
+
+candidate_gbdt:
+  type: lightgbm
+  n_estimators: 500
+  learning_rate: 0.05
+  num_leaves: 63
+  max_depth: -1
+  scale_pos_weight: null  # computed from train split at runtime
+  early_stopping_rounds: 50
+
+candidate_deep:
+  type: mlp_embeddings
+  hidden_dims: [128, 64]
+  embedding_dim: 8
+  dropout: 0.2
+  lr: 0.001
+  batch_size: 1024
+  epochs: 20
+  early_stopping_patience: 3
+
+evaluation:
+  fpr_target: 0.01
+  cost:
+    missed_fraud_multiplier: 1.0   # cost = transaction amount
+    false_decline_penalty: 5.0     # flat friction penalty per false decline
+
+promotion_gate:
+  min_pr_auc_gain: 0.02
+  min_recall_at_target_fpr_delta: 0.0
+  max_p95_inference_ms: 20
+
+artifacts:
+  models_dir: models/
+  eval_dir: artifacts/eval/

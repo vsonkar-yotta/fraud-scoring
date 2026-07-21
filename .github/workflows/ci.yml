@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps (libomp for LightGBM)
+        run: sudo apt-get update && sudo apt-get install -y libgomp1
+
+      - name: Install project
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check src/ tests/ scripts/
+
+      - name: Unit tests (skips real-data-dependent tests automatically)
+        run: pytest tests/ -q
+
+      - name: Smoke train on synthetic 5k-row sample
+        run: |
+          python scripts/make_daily_batches.py \
+            --source tests/fixtures/smoke_fraudTrain.csv --out-dir /tmp/smoke_feed
+          python -m fraud_scoring.ingest \
+            --feed-dir /tmp/smoke_feed --table /tmp/smoke_ingested/transactions.parquet \
+            --state /tmp/smoke_ingested/_state.json --log /tmp/smoke_ingested/log.jsonl
+          python -m fraud_scoring.train --config configs/train_smoke.yaml
+
+      - name: Smoke-test the API against the smoke-trained model
+        run: |
+          python -c "
+          import yaml
+          cfg = yaml.safe_load(open('configs/serve.yaml'))
+          cfg['models_dir'] = '/tmp/smoke_models/'
+          yaml.safe_dump(cfg, open('/tmp/serve_smoke.yaml', 'w'))
+          "
+          FRAUD_SERVE_CONFIG=/tmp/serve_smoke.yaml python -c "
+          from fastapi.testclient import TestClient
+          from fraud_scoring.serve.app import app
+          with TestClient(app) as c:
+              r = c.get('/health')
+              assert r.status_code == 200, r.text
+              print('health ok:', r.json())
+          "

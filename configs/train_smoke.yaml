@@ -1,0 +1,50 @@
+seed: 42
+
+data:
+  raw_train_csv: tests/fixtures/smoke_fraudTrain.csv
+  raw_test_csv: tests/fixtures/smoke_fraudTest.csv
+  ingested_table: /tmp/smoke_ingested/transactions.parquet
+  features_table: /tmp/smoke_ingested/features.parquet
+
+split:
+  train_end_date: "2023-02-15"
+  val_end_date: "2023-03-02"
+
+baseline:
+  type: logistic_regression
+  class_weight: balanced
+  max_iter: 200
+
+candidate_gbdt:
+  type: lightgbm
+  n_estimators: 30
+  learning_rate: 0.1
+  num_leaves: 15
+  max_depth: -1
+  scale_pos_weight: null
+  early_stopping_rounds: 10
+
+candidate_deep:
+  type: mlp_embeddings
+  hidden_dims: [16, 8]
+  embedding_dim: 4
+  dropout: 0.1
+  lr: 0.001
+  batch_size: 128
+  epochs: 2
+  early_stopping_patience: 2
+
+evaluation:
+  fpr_target: 0.01
+  cost:
+    missed_fraud_multiplier: 1.0
+    false_decline_penalty: 5.0
+
+promotion_gate:
+  min_pr_auc_gain: -1.0   # smoke run has too little data for a meaningful gain threshold
+  min_recall_at_target_fpr_delta: -1.0
+  max_p95_inference_ms: 50
+
+artifacts:
+  models_dir: /tmp/smoke_models/
+  eval_dir: /tmp/smoke_eval/

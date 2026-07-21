@@ -1,0 +1,44 @@
+stages:
+  make_daily_batches:
+    cmd: .venv/bin/python scripts/make_daily_batches.py --source data/raw/fraudTrain.csv --out-dir data/raw/daily_feed
+    deps:
+      - data/raw/fraudTrain.csv
+      - scripts/make_daily_batches.py
+    outs:
+      - data/raw/daily_feed
+
+  ingest:
+    cmd: .venv/bin/python -m fraud_scoring.ingest --feed-dir data/raw/daily_feed --table data/ingested/transactions.parquet
+    deps:
+      - data/raw/daily_feed
+      - src/fraud_scoring/ingest.py
+    outs:
+      - data/ingested/transactions.parquet
+      - data/ingested/_ingest_state.json
+      - data/ingested/ingest_log.jsonl
+
+  train:
+    cmd: .venv/bin/python -m fraud_scoring.train --config configs/train.yaml
+    deps:
+      - data/ingested/transactions.parquet
+      - data/raw/fraudTest.csv
+      - src/fraud_scoring/train.py
+      - src/fraud_scoring/features/build.py
+      - src/fraud_scoring/features/pure.py
+      - src/fraud_scoring/evaluate.py
+      - configs/train.yaml
+    outs:
+      - data/features/features.parquet
+    metrics:
+      - artifacts/eval/baseline_vs_candidate.json:
+          cache: false
+
+  train_deep:
+    cmd: .venv/bin/python -m fraud_scoring.train_deep --config configs/train.yaml
+    deps:
+      - data/features/features.parquet
+      - src/fraud_scoring/train_deep.py
+      - src/fraud_scoring/models_deep.py
+    metrics:
+      - artifacts/eval/deep_candidate.json:
+          cache: false

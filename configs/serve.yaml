@@ -1,0 +1,7 @@
+models_dir: models/
+
+# decision bands, relative to the model's cost-optimal decline threshold
+# (from its metadata.json, set by evaluate.py / train.py)
+review_band_fraction: 0.4   # review starts at threshold * this fraction
+
+metrics_window_size: 2000   # rolling window for /metrics latency + score stats

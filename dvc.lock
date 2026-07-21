@@ -1,0 +1,107 @@
+schema: '2.0'
+stages:
+  make_daily_batches:
+    cmd: .venv/bin/python scripts/make_daily_batches.py --source 
+      data/raw/fraudTrain.csv --out-dir data/raw/daily_feed
+    deps:
+    - path: data/raw/fraudTrain.csv
+      hash: md5
+      md5: 9723893e5492dc0551036edcf596e284
+      size: 351238196
+    - path: scripts/make_daily_batches.py
+      hash: md5
+      md5: 5eeb2a57532ecf3aa94e4118b7624966
+      size: 1514
+    outs:
+    - path: data/raw/daily_feed
+      hash: md5
+      md5: 3386fb7cb4454cda817274fd94c304bd.dir
+      size: 347442874
+      nfiles: 537
+  ingest:
+    cmd: .venv/bin/python -m fraud_scoring.ingest --feed-dir data/raw/daily_feed
+      --table data/ingested/transactions.parquet
+    deps:
+    - path: data/raw/daily_feed
+      hash: md5
+      md5: 3386fb7cb4454cda817274fd94c304bd.dir
+      size: 347442874
+      nfiles: 537
+    - path: src/fraud_scoring/ingest.py
+      hash: md5
+      md5: c2a6248a42d1efc91cee52d324020206
+      size: 5698
+    outs:
+    - path: data/ingested/_ingest_state.json
+      hash: md5
+      md5: ab71a3cd95453728fd13bda678fac3d7
+      size: 11843
+    - path: data/ingested/ingest_log.jsonl
+      hash: md5
+      md5: 3a5782649323978d9aa9267f5c04089f
+      size: 284
+    - path: data/ingested/transactions.parquet
+      hash: md5
+      md5: e7f7b76ee1d12523b6d8cc41df476e5e
+      size: 109402327
+  train:
+    cmd: .venv/bin/python -m fraud_scoring.train --config configs/train.yaml
+    deps:
+    - path: configs/train.yaml
+      hash: md5
+      md5: 9ec2cd7f6f80712c8150e2e2b4fe846f
+      size: 1457
+    - path: data/ingested/transactions.parquet
+      hash: md5
+      md5: e7f7b76ee1d12523b6d8cc41df476e5e
+      size: 109402327
+    - path: data/raw/fraudTest.csv
+      hash: md5
+      md5: 692357a2589a1a6fcd44f14b3e1f9d2c
+      size: 150354339
+    - path: src/fraud_scoring/evaluate.py
+      hash: md5
+      md5: 5e27226d63cf3634cea24411c27fbf37
+      size: 3999
+    - path: src/fraud_scoring/features/build.py
+      hash: md5
+      md5: c1640604691e0b3017f1c3ac7ffc61e3
+      size: 4298
+    - path: src/fraud_scoring/features/pure.py
+      hash: md5
+      md5: 320965c937646ef3fffe7841e1bfa1a9
+      size: 1037
+    - path: src/fraud_scoring/train.py
+      hash: md5
+      md5: af97c4563fae7e2e9adb02d422d9b7d8
+      size: 7550
+    outs:
+    - path: artifacts/eval/baseline_vs_candidate.json
+      hash: md5
+      md5: 6d8bc5c178f71c10f92dc509b0a5dc65
+      size: 1764
+    - path: data/features/features.parquet
+      hash: md5
+      md5: 16d0103037864b4029ebe2810af41b39
+      size: 194460294
+  train_deep:
+    cmd: .venv/bin/python -m fraud_scoring.train_deep --config 
+      configs/train.yaml
+    deps:
+    - path: data/features/features.parquet
+      hash: md5
+      md5: 16d0103037864b4029ebe2810af41b39
+      size: 194460294
+    - path: src/fraud_scoring/models_deep.py
+      hash: md5
+      md5: 862bd2fe2216d2e847a04868b13ec321
+      size: 926
+    - path: src/fraud_scoring/train_deep.py
+      hash: md5
+      md5: b605dd98c0932c34c1a4d12ed4d3971d
+      size: 7934
+    outs:
+    - path: artifacts/eval/deep_candidate.json
+      hash: md5
+      md5: 35d45f444b3c39ef49c5f13ee91126c9
+      size: 1447
